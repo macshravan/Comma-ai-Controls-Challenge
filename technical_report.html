@@ -1,0 +1,959 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Koopman MPC — comma.ai Controls Challenge: Technical Report</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/3.2.2/es5/tex-mml-chtml.min.js"></script>
+<style>
+  :root {
+    --blue:    #1a4f7a;
+    --blue2:   #2563a8;
+    --accent:  #0ea5e9;
+    --green:   #16a34a;
+    --orange:  #ea580c;
+    --red:     #dc2626;
+    --bg:      #f8fafc;
+    --card:    #ffffff;
+    --border:  #e2e8f0;
+    --text:    #1e293b;
+    --muted:   #64748b;
+    --code-bg: #0f172a;
+    --code-fg: #e2e8f0;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Georgia', serif;
+    font-size: 16px;
+    line-height: 1.8;
+    color: var(--text);
+    background: var(--bg);
+  }
+  /* ── Layout ── */
+  .page-wrap { max-width: 960px; margin: 0 auto; padding: 40px 32px 80px; }
+
+  /* ── Cover ── */
+  .cover {
+    background: linear-gradient(135deg, #0f2a45 0%, #1a4f7a 50%, #1e6fa8 100%);
+    color: #fff;
+    border-radius: 12px;
+    padding: 60px 48px 52px;
+    margin-bottom: 48px;
+    box-shadow: 0 8px 32px rgba(0,0,0,.18);
+  }
+  .cover .label { font-family: 'Courier New', monospace; font-size: 12px; letter-spacing: 3px; text-transform: uppercase; color: #93c5fd; margin-bottom: 16px; }
+  .cover h1 { font-size: 2.4rem; font-weight: 700; line-height: 1.2; margin-bottom: 12px; }
+  .cover .sub { font-size: 1.1rem; color: #bfdbfe; margin-bottom: 28px; }
+  .cover .meta-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-top: 32px; }
+  .cover .meta-item { background: rgba(255,255,255,.08); border-radius: 8px; padding: 14px 18px; }
+  .cover .meta-item .mk { font-size: 11px; letter-spacing: 1px; text-transform: uppercase; color: #93c5fd; margin-bottom: 4px; }
+  .cover .meta-item .mv { font-size: 1.1rem; font-weight: 600; }
+
+  /* ── TOC ── */
+  .toc { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 32px 36px; margin-bottom: 48px; }
+  .toc h2 { font-size: 1rem; text-transform: uppercase; letter-spacing: 2px; color: var(--blue); margin-bottom: 20px; }
+  .toc ol { padding-left: 20px; }
+  .toc li { margin: 6px 0; }
+  .toc a { color: var(--blue2); text-decoration: none; font-family: sans-serif; font-size: 15px; }
+  .toc a:hover { text-decoration: underline; }
+  .toc ol ol { margin-top: 4px; }
+  .toc ol ol li { font-size: 14px; color: var(--muted); }
+  .toc ol ol a { color: var(--muted); }
+
+  /* ── Sections ── */
+  section { margin-bottom: 56px; }
+  h2.sec-title {
+    font-size: 1.6rem;
+    color: var(--blue);
+    border-bottom: 3px solid var(--accent);
+    padding-bottom: 10px;
+    margin-bottom: 28px;
+    font-family: sans-serif;
+  }
+  h3.sub-title {
+    font-size: 1.15rem;
+    color: var(--blue2);
+    margin: 28px 0 12px;
+    font-family: sans-serif;
+  }
+  h4.mini-title {
+    font-size: 1rem;
+    color: var(--text);
+    margin: 20px 0 8px;
+    font-family: sans-serif;
+    font-weight: 700;
+  }
+  p { margin-bottom: 14px; }
+
+  /* ── Equation blocks ── */
+  .eq-block {
+    background: #f0f7ff;
+    border-left: 4px solid var(--accent);
+    border-radius: 0 8px 8px 0;
+    padding: 16px 24px;
+    margin: 20px 0;
+    overflow-x: auto;
+  }
+  .eq-block .eq-label {
+    font-family: sans-serif;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--muted);
+    margin-bottom: 8px;
+  }
+
+  /* ── Code blocks ── */
+  pre {
+    background: var(--code-bg);
+    color: var(--code-fg);
+    border-radius: 8px;
+    padding: 20px 24px;
+    font-family: 'Courier New', monospace;
+    font-size: 13px;
+    line-height: 1.6;
+    overflow-x: auto;
+    margin: 16px 0;
+  }
+  code { font-family: 'Courier New', monospace; font-size: 0.9em; background: #e8f0fe; color: #1a4f7a; padding: 2px 6px; border-radius: 3px; }
+
+  /* ── Info / Note boxes ── */
+  .box {
+    border-radius: 8px;
+    padding: 16px 20px;
+    margin: 20px 0;
+    font-family: sans-serif;
+    font-size: 15px;
+  }
+  .box.info  { background: #eff6ff; border-left: 4px solid #3b82f6; }
+  .box.warn  { background: #fffbeb; border-left: 4px solid #f59e0b; }
+  .box.good  { background: #f0fdf4; border-left: 4px solid var(--green); }
+  .box.label { font-weight: 700; margin-bottom: 4px; }
+
+  /* ── Tables ── */
+  table { width: 100%; border-collapse: collapse; font-family: sans-serif; font-size: 14px; margin: 20px 0; }
+  th { background: var(--blue); color: #fff; padding: 10px 14px; text-align: left; }
+  td { padding: 9px 14px; border-bottom: 1px solid var(--border); }
+  tr:nth-child(even) td { background: #f8fafc; }
+
+  /* ── Flow diagram ── */
+  .flow {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    margin: 24px 0;
+    font-family: sans-serif;
+  }
+  .flow-row { display: flex; align-items: stretch; }
+  .flow-box {
+    flex: 1;
+    background: var(--card);
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 18px;
+    font-size: 14px;
+  }
+  .flow-box.blue  { border-color: var(--blue2);  background: #eff6ff; }
+  .flow-box.green { border-color: var(--green);  background: #f0fdf4; }
+  .flow-box.orange{ border-color: var(--orange); background: #fff7ed; }
+  .flow-box.red   { border-color: var(--red);    background: #fef2f2; }
+  .flow-box .fb-title { font-weight: 700; margin-bottom: 4px; color: var(--blue); font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .flow-arrow {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 22px;
+    color: var(--accent);
+    padding: 4px 0;
+  }
+
+  /* ── Performance badge ── */
+  .perf-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin: 24px 0; }
+  .perf-card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 20px; text-align: center; }
+  .perf-card .pc-name { font-family: sans-serif; font-size: 13px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
+  .perf-card .pc-val  { font-size: 2rem; font-weight: 700; color: var(--blue); margin-bottom: 4px; }
+  .perf-card .pc-sub  { font-size: 12px; color: var(--muted); font-family: sans-serif; }
+  .perf-card.best { border-color: var(--green); }
+  .perf-card.best .pc-val { color: var(--green); }
+
+  /* ── Param table ── */
+  .param-table table { font-size: 13px; }
+  .param-table code { background: #dbeafe; }
+
+  /* ── Footer ── */
+  footer { text-align: center; color: var(--muted); font-family: sans-serif; font-size: 13px; margin-top: 60px; padding-top: 24px; border-top: 1px solid var(--border); }
+</style>
+</head>
+<body>
+<div class="page-wrap">
+
+<!-- ════════════════════ COVER ════════════════════ -->
+<div class="cover">
+  <div class="label">Technical Report · comma.ai Controls Challenge</div>
+  <h1>Koopman Operator MPC<br>for Lateral Acceleration Control</h1>
+  <div class="sub">Deep-dive analysis of training pipeline, controller architecture, and comparative performance</div>
+  <div class="meta-grid">
+    <div class="meta-item"><div class="mk">Lifted State Dim</div><div class="mv">90 features</div></div>
+    <div class="meta-item"><div class="mk">Spectral Radius</div><div class="mv">ρ ≤ 0.97</div></div>
+    <div class="meta-item"><div class="mk">Best Total Cost</div><div class="mv">61.62 (FF-PID)</div></div>
+    <div class="meta-item"><div class="mk">Koopman Total Cost</div><div class="mv">70.47</div></div>
+    <div class="meta-item"><div class="mk">Training Set</div><div class="mv">900 files</div></div>
+    <div class="meta-item"><div class="mk">Validation Set</div><div class="mv">100 files</div></div>
+  </div>
+</div>
+
+<!-- ════════════════════ TOC ════════════════════ -->
+<div class="toc">
+  <h2>Table of Contents</h2>
+  <ol>
+    <li><a href="#sec1">System Overview — comma.ai Controls Challenge</a></li>
+    <li><a href="#sec2">TinyPhysics Simulator</a>
+      <ol>
+        <li><a href="#sec2-1">State &amp; Action Space</a></li>
+        <li><a href="#sec2-2">Neural Dynamics Model</a></li>
+        <li><a href="#sec2-3">Cost Functions</a></li>
+        <li><a href="#sec2-4">Simulation Loop</a></li>
+      </ol>
+    </li>
+    <li><a href="#sec3">Koopman Operator Theory</a>
+      <ol>
+        <li><a href="#sec3-1">The Koopman Operator</a></li>
+        <li><a href="#sec3-2">Finite-Dimensional Approximation</a></li>
+        <li><a href="#sec3-3">Why Koopman for Control</a></li>
+      </ol>
+    </li>
+    <li><a href="#sec4">Koopman Training Pipeline (koopman_trainingv3.py)</a>
+      <ol>
+        <li><a href="#sec4-1">Data Loading &amp; Preprocessing</a></li>
+        <li><a href="#sec4-2">Feature Scaling</a></li>
+        <li><a href="#sec4-3">Delay Embedding</a></li>
+        <li><a href="#sec4-4">Polynomial Lifting</a></li>
+        <li><a href="#sec4-5">Building Training Pairs</a></li>
+        <li><a href="#sec4-6">Fitting Koopman Matrices (Ridge Regression)</a></li>
+        <li><a href="#sec4-7">Dual-Head Output Readout</a></li>
+        <li><a href="#sec4-8">Spectral Stabilisation</a></li>
+        <li><a href="#sec4-9">Blended Horizon Evaluation</a></li>
+        <li><a href="#sec4-10">Saved Artefacts</a></li>
+      </ol>
+    </li>
+    <li><a href="#sec5">Koopman MPC Controller (koopman_mpc.py)</a>
+      <ol>
+        <li><a href="#sec5-1">Model Loading &amp; State Buffer</a></li>
+        <li><a href="#sec5-2">Lifting the Current State</a></li>
+        <li><a href="#sec5-3">Random-Shooting MPC Optimisation</a></li>
+        <li><a href="#sec5-4">PID Residual Correction</a></li>
+        <li><a href="#sec5-5">Output Smoothing &amp; Rate Limiting</a></li>
+        <li><a href="#sec5-6">Full Execution Flow</a></li>
+      </ol>
+    </li>
+    <li><a href="#sec6">AR-Model Incremental MPC (ar_mpc_model.py)</a>
+      <ol>
+        <li><a href="#sec6-1">System Identification: AR(1) Model</a></li>
+        <li><a href="#sec6-2">Error-Space Reformulation</a></li>
+        <li><a href="#sec6-3">Closed-Form QP Solution</a></li>
+        <li><a href="#sec6-4">Feedforward + MPC Composition</a></li>
+        <li><a href="#sec6-5">Full Execution Flow</a></li>
+      </ol>
+    </li>
+    <li><a href="#sec7">Feedforward + PID Controller (feedforward_pid.py)</a>
+      <ol>
+        <li><a href="#sec7-1">Preview Feedforward</a></li>
+        <li><a href="#sec7-2">PID Residual Control</a></li>
+        <li><a href="#sec7-3">Output Smoothing</a></li>
+      </ol>
+    </li>
+    <li><a href="#sec8">Performance Comparison &amp; Analysis</a></li>
+    <li><a href="#sec9">Training Results Deep-Dive</a></li>
+    <li><a href="#sec10">Design Trade-offs &amp; Key Insights</a></li>
+  </ol>
+</div>
+
+
+<!-- ════════════════════ SECTION 1 ════════════════════ -->
+<section id="sec1">
+<h2 class="sec-title">1 · System Overview — comma.ai Controls Challenge</h2>
+<p>The comma.ai Controls Challenge asks participants to design a lateral acceleration (<em>lataccel</em>) tracking controller for an autonomous driving scenario. A black-box neural physics model called <strong>TinyPhysics</strong> plays the role of the vehicle dynamics plant. The controller must issue a steer command at each timestep so that the vehicle's simulated lateral acceleration tracks a reference trajectory.</p>
+
+<p>Three controllers have been implemented and benchmarked in this codebase:</p>
+
+<table>
+  <tr><th>Controller</th><th>Method</th><th>LatAccel Cost</th><th>Jerk Cost</th><th>Total Cost</th></tr>
+  <tr><td><strong>Koopman MPC</strong> (<code>koopman_mpc.py</code>)</td><td>Data-driven Koopman + Random-Shooting MPC + PID</td><td>0.9813</td><td>21.4</td><td>70.47</td></tr>
+  <tr><td><strong>AR-MPC Model</strong> (<code>ar_mpc_model.py</code>)</td><td>AR(1) error-space MPC + Feedforward</td><td>2.358</td><td>14.92</td><td>132.8</td></tr>
+  <tr><td><strong>Feedforward PID</strong> (<code>feedforward_pid.py</code>)</td><td>Preview Feedforward + PID</td><td>0.8483</td><td>19.21</td><td>61.62</td></tr>
+</table>
+
+<div class="box info">
+  <span class="label">Score Formula:</span>
+  Total Cost = (LatAccel Cost × 50) + Jerk Cost. Lower is better. The ×50 weight makes tracking accuracy far more important than smoothness.
+</div>
+</section>
+
+
+<!-- ════════════════════ SECTION 2 ════════════════════ -->
+<section id="sec2">
+<h2 class="sec-title">2 · TinyPhysics Simulator</h2>
+
+<h3 class="sub-title" id="sec2-1">2.1 State &amp; Action Space</h3>
+<p>Each CSV data file contains one driving segment. The simulator reads the following signals:</p>
+<table>
+  <tr><th>Signal</th><th>Description</th><th>Units</th></tr>
+  <tr><td><code>roll_lataccel</code></td><td>Lateral acceleration due to road roll = sin(roll) × g</td><td>m/s²</td></tr>
+  <tr><td><code>v_ego</code></td><td>Vehicle longitudinal velocity</td><td>m/s</td></tr>
+  <tr><td><code>a_ego</code></td><td>Vehicle longitudinal acceleration</td><td>m/s²</td></tr>
+  <tr><td><code>target_lataccel</code></td><td>Reference lateral acceleration to track</td><td>m/s²</td></tr>
+  <tr><td><code>steer_command</code></td><td>Steering input (right-positive convention)</td><td>normalised [−2, 2]</td></tr>
+</table>
+
+<p>The state observed by the controller at each step is wrapped in a <code>State</code> namedtuple, and a 5-second preview (50 steps at 10 Hz) is available as a <code>FuturePlan</code>.</p>
+
+<h3 class="sub-title" id="sec2-2">2.2 Neural Dynamics Model</h3>
+<p>TinyPhysics uses a pre-trained ONNX transformer/token model as the vehicle physics engine. At each step it predicts the next lateral acceleration token from the last 20 context steps of states, actions, and past predictions, then decodes the token through a 1024-bin tokenizer that linearly covers [−5, 5] m/s².</p>
+
+<div class="eq-block">
+  <div class="eq-label">Tokenizer decoding</div>
+  \[\hat{y}_t = \text{bins}\!\left[\arg\max_k \frac{e^{l_k / T}}{\sum_j e^{l_j/T}}\right], \quad T = 0.8, \quad \text{bins}_k = -5 + \frac{10k}{1023}\]
+</div>
+
+<p>The predicted acceleration is then clipped to prevent unrealistic jumps:</p>
+<div class="eq-block">
+  <div class="eq-label">Continuity constraint</div>
+  \[\hat{y}_t = \text{clip}\!\left(\hat{y}_t,\; y_{t-1} - 0.5,\; y_{t-1} + 0.5\right)\]
+</div>
+
+<h3 class="sub-title" id="sec2-3">2.3 Cost Functions</h3>
+<p>Costs are computed over control steps 100 to 500 (the first 100 steps use recorded actions as warm-up).</p>
+
+<div class="eq-block">
+  <div class="eq-label">Lateral acceleration tracking cost</div>
+  \[C_\text{lat} = \frac{100}{N} \sum_{t=100}^{500} \left(r_t - \hat{y}_t\right)^2\]
+</div>
+
+<div class="eq-block">
+  <div class="eq-label">Jerk cost</div>
+  \[C_\text{jerk} = \frac{100}{N} \sum_{t=101}^{500} \left(\frac{\hat{y}_t - \hat{y}_{t-1}}{\Delta t}\right)^2, \quad \Delta t = 0.1\text{ s}\]
+</div>
+
+<div class="eq-block">
+  <div class="eq-label">Total cost (objective to minimise)</div>
+  \[C_\text{total} = 50 \cdot C_\text{lat} + C_\text{jerk}\]
+</div>
+
+<h3 class="sub-title" id="sec2-4">2.4 Simulation Loop</h3>
+<div class="flow">
+  <div class="flow-row"><div class="flow-box blue"><div class="fb-title">Initialise</div>Load CSV, seed RNG from file hash, replay first 20 steps (context window) with recorded actions.</div></div>
+  <div class="flow-arrow">↓</div>
+  <div class="flow-row"><div class="flow-box blue"><div class="fb-title">Each Step t</div>Read state (vEgo, aEgo, roll) and target from CSV. Assemble FuturePlan (next 50 steps).</div></div>
+  <div class="flow-arrow">↓</div>
+  <div class="flow-row"><div class="flow-box orange"><div class="fb-title">Control Step</div>Call <code>controller.update(target, current_lataccel, state, future_plan)</code> → steer ∈ [−2, 2].</div></div>
+  <div class="flow-arrow">↓</div>
+  <div class="flow-row"><div class="flow-box green"><div class="fb-title">Simulation Step</div>Push steer to TinyPhysics ONNX model → sample next lataccel token → decode → clip.</div></div>
+  <div class="flow-arrow">↓</div>
+  <div class="flow-row"><div class="flow-box red"><div class="fb-title">Cost Computation (after all steps)</div>Compute C_lat, C_jerk, C_total over steps 100–500.</div></div>
+</div>
+</section>
+
+
+<!-- ════════════════════ SECTION 3 ════════════════════ -->
+<section id="sec3">
+<h2 class="sec-title">3 · Koopman Operator Theory</h2>
+
+<h3 class="sub-title" id="sec3-1">3.1 The Koopman Operator</h3>
+<p>For a discrete nonlinear dynamical system \(x_{t+1} = f(x_t)\), the <strong>Koopman operator</strong> \(\mathcal{K}\) is an infinite-dimensional linear operator that acts on <em>observable functions</em> \(g : \mathcal{X} \to \mathbb{R}\):</p>
+
+<div class="eq-block">
+  <div class="eq-label">Koopman operator definition</div>
+  \[\mathcal{K}\, g = g \circ f \qquad \Longleftrightarrow \qquad \mathcal{K}\, g(x_t) = g(f(x_t)) = g(x_{t+1})\]
+</div>
+
+<p>The key insight: while \(f\) is nonlinear, \(\mathcal{K}\) is <em>linear</em> — nonlinear dynamics become linear evolution in the (possibly infinite-dimensional) space of observables.</p>
+
+<h3 class="sub-title" id="sec3-2">3.2 Finite-Dimensional Approximation</h3>
+<p>We approximate \(\mathcal{K}\) by choosing a finite dictionary of basis functions (observables) \(\phi : \mathbb{R}^n \to \mathbb{R}^{n_z}\) and finding the best linear map in that lifted space:</p>
+
+<div class="eq-block">
+  <div class="eq-label">Lifted state</div>
+  \[z_t = \phi(x_t) \in \mathbb{R}^{n_z}, \qquad n_z \gg n\]
+</div>
+
+<div class="eq-block">
+  <div class="eq-label">Lifted linear dynamics (Koopman model)</div>
+  \[z_{t+1} \approx A\,z_t + B\,u_t, \qquad A \in \mathbb{R}^{n_z \times n_z},\quad B \in \mathbb{R}^{n_z \times n_u}\]
+</div>
+
+<div class="eq-block">
+  <div class="eq-label">Output readout</div>
+  \[\hat{y}_t = C\,z_t, \qquad C \in \mathbb{R}^{n_y \times n_z}\]
+</div>
+
+<h3 class="sub-title" id="sec3-3">3.3 Why Koopman for Control</h3>
+<p>Once in the lifted linear space, the full machinery of linear MPC applies: closed-form predictions, guaranteed stability via spectral radius control, and efficient optimisation. The quality of the approximation depends on the richness of the dictionary \(\phi\).</p>
+</section>
+
+
+<!-- ════════════════════ SECTION 4 ════════════════════ -->
+<section id="sec4">
+<h2 class="sec-title">4 · Koopman Training Pipeline (<code>koopman_trainingv3.py</code>)</h2>
+
+<div class="box info">
+  <strong>Summary:</strong> The training script learns A, B, C matrices that define a 90-dimensional linear system approximating the nonlinear vehicle lataccel dynamics. Training uses 900 CSV segments (≈518,793 state-transition pairs).
+</div>
+
+<h3 class="sub-title" id="sec4-1">4.1 Data Loading &amp; Preprocessing</h3>
+<p>Each CSV file contains a driving segment with the raw state columns:</p>
+
+<div class="eq-block">
+  <div class="eq-label">State vector (raw, pre-scaling)</div>
+  \[x_t = \begin{bmatrix} v_\text{ego} \\ a_\text{ego} \\ \text{roll} \\ \text{current\_lataccel} \end{bmatrix} \in \mathbb{R}^4\]
+</div>
+
+<p>900 files are loaded for training and 100 for validation. The control input is:</p>
+<div class="eq-block">
+  <div class="eq-label">Control input</div>
+  \[u_t = \text{steerCommand} \in \mathbb{R}\]
+</div>
+
+<h3 class="sub-title" id="sec4-2">4.2 Feature Scaling</h3>
+<p>A <code>StandardScaler</code> is fit on the full training set and applied to both states and controls. This is critical because the raw features have very different magnitudes (velocity in m/s vs. lataccel in m/s²).</p>
+
+<div class="eq-block">
+  <div class="eq-label">Z-score normalisation</div>
+  \[\tilde{x}_t = \frac{x_t - \boldsymbol{\mu}_x}{\boldsymbol{\sigma}_x}, \qquad \tilde{u}_t = \frac{u_t - \mu_u}{\sigma_u}\]
+</div>
+
+<p>where \(\boldsymbol{\mu}_x, \boldsymbol{\sigma}_x \in \mathbb{R}^4\) and \(\mu_u, \sigma_u \in \mathbb{R}\) are fit on training data only.</p>
+
+<h3 class="sub-title" id="sec4-3">4.3 Delay Embedding</h3>
+<p>A single 4-dimensional snapshot gives limited temporal information. Delay embedding stacks the last \(d = 3\) consecutive scaled state vectors into a single expanded vector, injecting temporal context (Takens' theorem motivates this for reconstructing attractor geometry).</p>
+
+<div class="eq-block">
+  <div class="eq-label">Delay-embedded state (DELAY = 3)</div>
+  \[\tilde{x}^{(d)}_t = \begin{bmatrix} \tilde{x}_t \\ \tilde{x}_{t-1} \\ \tilde{x}_{t-2} \end{bmatrix} \in \mathbb{R}^{4d} = \mathbb{R}^{12}\]
+</div>
+
+<p>In code this is computed in reverse order then reshaped, so the most recent state occupies the first 4 entries. This requires \(d-1 = 2\) warm-up steps, reducing each trajectory by 2 samples from the start.</p>
+
+<h3 class="sub-title" id="sec4-4">4.4 Polynomial Lifting</h3>
+<p>The delay-embedded vector is further lifted using a degree-2 polynomial feature map. This is the dictionary \(\phi\) that generates all monomials up to degree 2:</p>
+
+<div class="eq-block">
+  <div class="eq-label">Polynomial lifting map (degree 2, no bias)</div>
+  \[z_t = \phi\!\left(\tilde{x}^{(d)}_t\right) = \left[\tilde{x}^{(d)}_t,\; \left(\tilde{x}^{(d)}_t\right)^{\otimes 2}_{\text{upper}}\right] \in \mathbb{R}^{n_z}\]
+</div>
+
+<p>For an input of dimension \(p = 12\) with degree 2 and no bias, the output dimension is:</p>
+
+<div class="eq-block">
+  <div class="eq-label">Lifted dimension formula</div>
+  \[n_z = p + \binom{p+1}{2} = 12 + \frac{12 \cdot 13}{2} = 12 + 78 = \mathbf{90}\]
+</div>
+
+<p>This is confirmed by the training output: <em>"Lifted dim: 90 (delay=3, poly_deg=2)"</em>.</p>
+
+<h3 class="sub-title" id="sec4-5">4.5 Building Training Pairs</h3>
+<p>For each trajectory we build one-step pairs \((z_t, u_t, z_{t+1})\) along with the output targets:</p>
+
+<div class="eq-block">
+  <div class="eq-label">Training pair construction</div>
+  \[\{(z_k, u_k, z_{k+1},\; y_k,\; \Delta y_k)\}_{k}\]
+  \[\text{where}\quad y_k = \text{lataccel at step } k, \qquad \Delta y_k = y_{k+1} - y_k\]
+</div>
+
+<p>The total number of pairs across 900 trajectories is <strong>518,793</strong>.</p>
+
+<h3 class="sub-title" id="sec4-6">4.6 Fitting Koopman Matrices A and B (Ridge Regression)</h3>
+<p>The Koopman dynamics \(z_{t+1} = Az_t + Bu_t\) are fit jointly by stacking \([z_k,\, u_k]\) as a design matrix and solving with Ridge regularisation:</p>
+
+<div class="eq-block">
+  <div class="eq-label">Joint design matrix</div>
+  \[X = \begin{bmatrix} Z_k & U_k \end{bmatrix} \in \mathbb{R}^{N \times (n_z + 1)}\]
+</div>
+
+<div class="eq-block">
+  <div class="eq-label">Ridge regression (normal equations)</div>
+  \[K = \left(X^\top X + \lambda I\right)^{-1} X^\top Z_{k+1}, \qquad \lambda = 0.05\]
+</div>
+
+<div class="eq-block">
+  <div class="eq-label">Extract A and B from solution</div>
+  \[A = K_{1:n_z}^\top \in \mathbb{R}^{n_z \times n_z}, \qquad B = K_{n_z+1}^\top \in \mathbb{R}^{n_z \times 1}\]
+</div>
+
+<p>Ridge regularisation (\(\lambda = 0.05\)) prevents overfitting and improves the condition number of \(X^\top X\), which is critical for a 90-dimensional system with correlated features.</p>
+
+<h3 class="sub-title" id="sec4-7">4.7 Dual-Head Output Readout (Fitting C)</h3>
+<p>Instead of a single output matrix, two independent readout heads are fitted:</p>
+
+<div class="eq-block">
+  <div class="eq-label">Absolute prediction head</div>
+  \[W_\text{abs} = \left(Z_k^\top Z_k + \lambda I\right)^{-1} Z_k^\top Y_\text{abs} \in \mathbb{R}^{n_z \times 1}\]
+</div>
+
+<div class="eq-block">
+  <div class="eq-label">Delta prediction head</div>
+  \[W_\Delta = \left(Z_k^\top Z_k + \lambda I\right)^{-1} Z_k^\top Y_\Delta \in \mathbb{R}^{n_z \times 1}\]
+</div>
+
+<div class="eq-block">
+  <div class="eq-label">Combined C matrix</div>
+  \[C = \begin{bmatrix} W_\text{abs}^\top \\ W_\Delta^\top \end{bmatrix} \in \mathbb{R}^{2 \times n_z}, \quad C[0] = W_\text{abs}^\top,\; C[1] = W_\Delta^\top\]
+</div>
+
+<p>Fitting the two heads separately avoids cross-interference: the absolute head learns the steady-state lataccel from any lifted state; the delta head learns incremental changes. Both are then blended at inference time.</p>
+
+<h3 class="sub-title" id="sec4-8">4.8 Spectral Stabilisation</h3>
+<p>The learned A matrix may have eigenvalues with magnitude exceeding 1, causing unbounded rollouts. To guarantee stability, eigenvalues are scaled down to a maximum spectral radius of \(\rho_\max = 0.97\):</p>
+
+<div class="eq-block">
+  <div class="eq-label">Eigendecomposition</div>
+  \[A = V \Lambda V^{-1}, \qquad \Lambda = \text{diag}(\lambda_1, \ldots, \lambda_{n_z})\]
+</div>
+
+<div class="eq-block">
+  <div class="eq-label">Eigenvalue scaling</div>
+  \[\tilde{\lambda}_i = \begin{cases} \dfrac{\rho_\max}{|\lambda_i|} \cdot \lambda_i & \text{if } |\lambda_i| > \rho_\max \\ \lambda_i & \text{otherwise} \end{cases}\]
+</div>
+
+<div class="eq-block">
+  <div class="eq-label">Stabilised A matrix</div>
+  \[A_\text{stab} = V\,\tilde{\Lambda}\,V^{-1} \in \mathbb{R}^{n_z \times n_z}, \qquad \tilde{\Lambda} = \text{diag}(\tilde{\lambda}_1, \ldots, \tilde{\lambda}_{n_z})\]
+</div>
+
+<p>Result from training: <em>"Clipped 9/90 eigenvalues (max |λ| before=0.9997, after=0.9700)"</em>. Only 9 of 90 modes needed correction — the data-driven A is already mostly stable.</p>
+
+<h3 class="sub-title" id="sec4-9">4.9 Blended Horizon Evaluation</h3>
+<p>After fitting, a H=15 open-loop rollout evaluates model quality. Each rollout step uses the blended prediction formula:</p>
+
+<div class="eq-block">
+  <div class="eq-label">Koopman state rollout</div>
+  \[z_{t+1} = A_\text{stab}\,z_t + B\,\tilde{u}_t\]
+</div>
+
+<div class="eq-block">
+  <div class="eq-label">Blended output prediction (α = 0.80)</div>
+  \[\hat{y}_{t+1} = \alpha \!\left(\hat{y}_t + C[1]\cdot z_t\right) + (1-\alpha)\!\left(C[0]\cdot z_t\right)\]
+</div>
+
+<p>This blending formula combines two philosophies:</p>
+<ul style="margin: 10px 0 14px 24px;">
+  <li><strong>Absolute (1−α = 20%):</strong> predicts lataccel directly from the lifted state — good for recovering after large deviations.</li>
+  <li><strong>Delta (α = 80%):</strong> integrates incremental changes from the current lataccel — good for smooth short-horizon prediction.</li>
+</ul>
+
+<div class="eq-block">
+  <div class="eq-label">Evaluation metric</div>
+  \[R^2 = 1 - \frac{\sum_t (\hat{y}_t - y_t)^2}{\sum_t (y_t - \bar{y})^2}\]
+</div>
+
+<p>Results: Train R² = <strong>0.8703</strong>, Val R² = <strong>0.8815</strong> (validation slightly outperforming training is normal with ridge regularisation).</p>
+
+<h3 class="sub-title" id="sec4-10">4.10 Saved Artefacts</h3>
+<table>
+  <tr><th>File</th><th>Content</th><th>Shape</th></tr>
+  <tr><td><code>A.npy</code></td><td>Stabilised Koopman transition matrix</td><td>(90, 90)</td></tr>
+  <tr><td><code>B.npy</code></td><td>Koopman control input matrix</td><td>(90, 1)</td></tr>
+  <tr><td><code>C.npy</code></td><td>Dual-head readout matrix</td><td>(2, 90)</td></tr>
+  <tr><td><code>x_scaler.pkl</code></td><td>StandardScaler for states</td><td>mean/std for 4 features</td></tr>
+  <tr><td><code>u_scaler.pkl</code></td><td>StandardScaler for controls</td><td>mean/std for 1 feature</td></tr>
+  <tr><td><code>phi.pkl</code></td><td>PolynomialFeatures transformer</td><td>12→90</td></tr>
+  <tr><td><code>koopman_cfg.pkl</code></td><td>Config dict (DELAY, POLY_DEG, BLEND_ALPHA, STATE_COLS)</td><td>—</td></tr>
+</table>
+</section>
+
+
+<!-- ════════════════════ SECTION 5 ════════════════════ -->
+<section id="sec5">
+<h2 class="sec-title">5 · Koopman MPC Controller (<code>koopman_mpc.py</code>)</h2>
+
+<div class="box info">
+  <strong>Architecture:</strong> Random-shooting MPC in the lifted Koopman space + PID correction + exponential output smoothing. MPC horizon H=8, 30 candidate steer values per step.
+</div>
+
+<div class="param-table">
+<table>
+  <tr><th>Parameter</th><th>Symbol</th><th>Value</th><th>Role</th></tr>
+  <tr><td>MPC horizon</td><td>H</td><td>8 steps</td><td>Prediction window</td></tr>
+  <tr><td>Candidates</td><td>N_cand</td><td>30</td><td>Random-shooting resolution</td></tr>
+  <tr><td>Jerk weight</td><td>λ_jerk</td><td>12.0</td><td>Penalise steer rate</td></tr>
+  <tr><td>Effort weight</td><td>λ_u</td><td>0.8</td><td>Penalise steer magnitude</td></tr>
+  <tr><td>PID-P</td><td>p</td><td>0.9</td><td>Proportional residual correction</td></tr>
+  <tr><td>PID-I</td><td>i</td><td>0.03</td><td>Integral (steady-state correction)</td></tr>
+  <tr><td>PID-D</td><td>d</td><td>0.2</td><td>Derivative (damp oscillations)</td></tr>
+  <tr><td>MPC weight</td><td>—</td><td>0.25</td><td>MPC/PID blend in output</td></tr>
+  <tr><td>Smoothing factor</td><td>—</td><td>0.75</td><td>Output EMA filter</td></tr>
+  <tr><td>Max delta</td><td>δ_max</td><td>0.25</td><td>Per-step steer rate limit</td></tr>
+</table>
+</div>
+
+<h3 class="sub-title" id="sec5-1">5.1 Model Loading &amp; State Buffer</h3>
+<p>At import time, the trained artefacts are loaded from disk. The controller maintains a circular state buffer of length <code>DELAY = 3</code>. Until 3 steps have been observed, a simple feedforward fallback is used:</p>
+
+<div class="eq-block">
+  <div class="eq-label">Warm-up feedforward (before state buffer filled)</div>
+  \[u_t^{\text{warmup}} = \text{FF\_GAIN} \cdot r_t, \qquad \text{FF\_GAIN} = 0.31498\]
+</div>
+
+<h3 class="sub-title" id="sec5-2">5.2 Lifting the Current State</h3>
+<p>Each call to <code>update()</code> appends the new state to the buffer, then lifts the 3-step window to obtain the current Koopman state vector:</p>
+
+<div class="eq-block">
+  <div class="eq-label">State lifting pipeline</div>
+  \[x_\text{hist} \xrightarrow{\text{StandardScaler}} \tilde{x}_\text{hist} \xrightarrow{\text{reverse+reshape}} \tilde{x}^{(d)} \xrightarrow{\phi(\cdot)} z_t \in \mathbb{R}^{90}\]
+</div>
+
+<h3 class="sub-title" id="sec5-3">5.3 Random-Shooting MPC Optimisation</h3>
+<p>MPC is solved by evaluating a finite set of constant-hold steer candidates over an H=8 horizon and selecting the one with minimum cost. The candidate set is:</p>
+
+<div class="eq-block">
+  <div class="eq-label">Candidate generation</div>
+  \[\mathcal{U} = \text{linspace}(u_{t-1} - 0.2,\; u_{t-1} + 0.2,\; 15) \;\cup\; \text{linspace}(u_{t-1} - \sigma,\; u_{t-1} + \sigma,\; 15)\]
+  \[\sigma = 0.6 + 0.8\,|u_{t-1}|, \qquad \mathcal{U} \subset [-2, 2]\]
+</div>
+
+<p>For each candidate \(u \in \mathcal{U}\), the MPC rollout proceeds:</p>
+
+<div class="eq-block">
+  <div class="eq-label">Koopman rollout (inner loop, k = 0, …, H−1)</div>
+  \[\tilde{u} = \text{u\_scaler.transform}(u) \qquad \text{(scale to training distribution)}\]
+  \[z_{k+1} = A_\text{stab}\,z_k + B\,\tilde{u}\]
+  \[\hat{y}_{k+1} = \alpha\!\left(\hat{y}_k + C[1] \cdot z_{k+1}\right) + (1-\alpha)\!\left(C[0]\cdot z_{k+1}\right)\]
+</div>
+
+<div class="eq-block">
+  <div class="eq-label">Per-step cost</div>
+  \[c_k(u) = \underbrace{\left(\hat{y}_{k+1} - r_{k+1}\right)^2}_{\text{tracking}} + \underbrace{\lambda_\text{jerk}\,(u - u_\text{last})^2}_{\text{smoothness}} + \underbrace{\lambda_u\, u^2}_{\text{effort}}\]
+</div>
+
+<div class="eq-block">
+  <div class="eq-label">Total candidate cost and optimal selection</div>
+  \[J(u) = \sum_{k=0}^{H-1} c_k(u), \qquad u^* = \arg\min_{u \in \mathcal{U}} J(u)\]
+</div>
+
+<h3 class="sub-title" id="sec5-4">5.4 PID Residual Correction</h3>
+<p>A PID loop acts on the instantaneous tracking error to correct any residual model-plant mismatch:</p>
+
+<div class="eq-block">
+  <div class="eq-label">PID error terms</div>
+  \[e_t = r_t - y_t, \qquad I_t = \text{clip}\!\left(I_{t-1} + e_t,\; -5,\; 5\right), \qquad D_t = e_t - e_{t-1}\]
+</div>
+
+<div class="eq-block">
+  <div class="eq-label">PID output</div>
+  \[\text{PID}_t = p\,e_t + i\,I_t + d\,D_t\]
+</div>
+
+<h3 class="sub-title" id="sec5-5">5.5 Output Smoothing &amp; Rate Limiting</h3>
+<p>The MPC and PID outputs are blended, then smoothed and rate-limited before being sent to the plant:</p>
+
+<div class="eq-block">
+  <div class="eq-label">MPC + PID blend</div>
+  \[\text{raw}_t = u^* + 0.3 \cdot \text{PID}_t\]
+</div>
+
+<div class="eq-block">
+  <div class="eq-label">Exponential moving average (EMA) smoothing</div>
+  \[\text{out}_t = 0.75\,u_{t-1} + 0.25\,\text{raw}_t\]
+</div>
+
+<div class="eq-block">
+  <div class="eq-label">Rate limiting and saturation</div>
+  \[u_t = \text{clip}\!\left(\text{out}_t,\; u_{t-1} - 0.25,\; u_{t-1} + 0.25,\; -2,\; 2\right)\]
+</div>
+
+<h3 class="sub-title" id="sec5-6">5.6 Full Execution Flow</h3>
+<div class="flow">
+  <div class="flow-row"><div class="flow-box blue"><div class="fb-title">Step 1 — State ingestion</div>Append \(x_t = [v_\text{ego}, a_\text{ego}, \text{roll}, y_t]\) to buffer (keep last 3 steps).</div></div>
+  <div class="flow-arrow">↓</div>
+  <div class="flow-row"><div class="flow-box blue"><div class="fb-title">Step 2 — Lifting</div>Scale → delay-embed (reverse) → polynomial features → \(z_t \in \mathbb{R}^{90}\).</div></div>
+  <div class="flow-arrow">↓</div>
+  <div class="flow-row"><div class="flow-box orange"><div class="fb-title">Step 3 — Target assembly</div>Pull next H targets from <code>future_plan.lataccel</code>; pad last value if needed.</div></div>
+  <div class="flow-arrow">↓</div>
+  <div class="flow-row"><div class="flow-box orange"><div class="fb-title">Step 4 — Random-shooting MPC</div>Evaluate 30 candidate steers × 8 Koopman rollout steps. Select \(u^*\) with minimum J.</div></div>
+  <div class="flow-arrow">↓</div>
+  <div class="flow-row"><div class="flow-box green"><div class="fb-title">Step 5 — PID correction</div>Compute e, I, D from tracking error. Blend: raw = u* + 0.3·PID.</div></div>
+  <div class="flow-arrow">↓</div>
+  <div class="flow-row"><div class="flow-box green"><div class="fb-title">Step 6 — Smooth + clip</div>EMA filter (α=0.75) → rate limit (±0.25/step) → saturate to [−2, 2].</div></div>
+  <div class="flow-arrow">↓</div>
+  <div class="flow-row"><div class="flow-box red"><div class="fb-title">Output</div>Return \(u_t \in [-2, 2]\) to TinyPhysics.</div></div>
+</div>
+</section>
+
+
+<!-- ════════════════════ SECTION 6 ════════════════════ -->
+<section id="sec6">
+<h2 class="sec-title">6 · AR-Model Incremental MPC (<code>ar_mpc_model.py</code>)</h2>
+
+<div class="box warn">
+  <strong>Design Philosophy:</strong> Rather than tracking future lataccel targets with MPC (which causes destructive Δu spikes due to model mismatch), this controller uses an AR(1) model only for <em>disturbance rejection</em>. Target anticipation is handled entirely by a separate feedforward term.
+</div>
+
+<h3 class="sub-title" id="sec6-1">6.1 System Identification: AR(1) Model</h3>
+<p>The vehicle's lataccel dynamics are identified as a first-order autoregressive model from closed-loop PID rollout data:</p>
+
+<div class="eq-block">
+  <div class="eq-label">AR(1) identified plant model</div>
+  \[\text{la}[t+1] = \underbrace{0.9577}_{\text{AR\_A}}\,\text{la}[t] + \underbrace{0.0605}_{\text{AR\_B}}\,\text{steer}[t] + \underbrace{0.0404}_{\text{AR\_C}}\,\text{roll}[t] + \underbrace{(-0.007828)}_{\text{AR\_D}}\]
+</div>
+
+<p>The large AR_A (≈0.958) reflects the slow dynamics of lataccel — it barely changes between steps. AR_B ≈ 0.06 is the identified steer-to-lataccel gain at short horizons.</p>
+
+<h3 class="sub-title" id="sec6-2">6.2 Error-Space Reformulation</h3>
+<p>The controller works in error space. Define:</p>
+
+<div class="eq-block">
+  <div class="eq-label">Error and incremental control</div>
+  \[e[t] = \text{la}[t] - r[t], \qquad \Delta u[t] = \text{steer}[t] - \text{steer}_\text{ff}[t]\]
+</div>
+
+<div class="eq-block">
+  <div class="eq-label">Feedforward gain (steady-state calibrated)</div>
+  \[\text{steer}_\text{ff}[t] = \text{FF\_GAIN} \cdot r_\text{eff}[t], \qquad \text{FF\_GAIN} = 0.30\]
+</div>
+
+<div class="eq-block">
+  <div class="eq-label">Corrected input gain (so free term → 0 at steady state)</div>
+  \[b_\text{correct} = \frac{1 - \text{AR\_A}}{\text{FF\_GAIN}} = \frac{1 - 0.9577}{0.30} \approx 0.1410\]
+</div>
+
+<div class="eq-block">
+  <div class="eq-label">Error-space dynamics</div>
+  \[e[t+1] \approx \text{AR\_A}\cdot e[t] + b_\text{correct}\cdot \Delta u[t] + \text{free}[t]\]
+</div>
+
+<div class="eq-block">
+  <div class="eq-label">Free term (disturbances only — roll and bias)</div>
+  \[\text{free}[k] = \text{AR\_CROLL}\cdot \text{roll}[k] + \text{AR\_D} = 0.0404\cdot\text{roll}[k] - 0.007828\]
+</div>
+
+<h3 class="sub-title" id="sec6-3">6.3 Closed-Form QP Solution</h3>
+<p>The MPC problem over horizon H=20 is formulated as a QP with state \(e[k]\), control \(\Delta u[k]\), and cost matrices built from the AR(1) model. All gain matrices are precomputed <em>once</em> at class definition — per-step cost is a single dot product.</p>
+
+<div class="eq-block">
+  <div class="eq-label">Prediction matrices</div>
+  \[S_d[i,j] = a^{i-j}\;\text{ for } j \leq i,\;\text{else } 0 \qquad \text{(lower triangular)}\]
+  \[S_u = b_\text{correct} \cdot S_d, \qquad S_x = [a^1, a^2, \ldots, a^H]^\top\]
+</div>
+
+<div class="eq-block">
+  <div class="eq-label">Prediction equation</div>
+  \[E = S_x\,e_0 + S_u\,\Delta U + S_d\,\mathbf{f}\]
+  \[\text{where } E, \Delta U, \mathbf{f} \in \mathbb{R}^H\]
+</div>
+
+<div class="eq-block">
+  <div class="eq-label">Cost function (tracking + jerk + effort)</div>
+  \[J(\Delta U) = Q\,\|E\|^2 + R_\Delta\,\|D\,\Delta U - \Delta u_{t-1}\,e_1\|^2 + R_e\,\|\Delta U\|^2\]
+  \[Q = 50, \quad R_\Delta = 7, \quad R_e = 0.02\]
+</div>
+
+<div class="eq-block">
+  <div class="eq-label">QP optimality matrix</div>
+  \[M = S_u^\top Q\, S_u + R_\Delta\,(D^\top D) + R_e\, I, \qquad M \in \mathbb{R}^{H \times H}\]
+</div>
+
+<div class="eq-block">
+  <div class="eq-label">Precomputed MPC gain vectors (first-element extraction)</div>
+  \[K_{e_0} = -M^{-1} S_u^\top Q\, S_x \in \mathbb{R}^H \;\Rightarrow\; k_{e_0} = K_{e_0}[0]\]
+  \[K_\text{free} = -M^{-1} S_u^\top Q\, S_d \in \mathbb{R}^{H \times H} \;\Rightarrow\; k_\text{free} = K_\text{free}[0,:] \in \mathbb{R}^H\]
+  \[K_{u_\text{prev}} = M^{-1} R_\Delta D^\top e_1 \in \mathbb{R}^H \;\Rightarrow\; k_{u_\text{prev}} = K_{u_\text{prev}}[0]\]
+</div>
+
+<div class="eq-block">
+  <div class="eq-label">Per-step MPC decision (O(H) dot product only)</div>
+  \[\Delta u^*[0] = k_{e_0}\,e_0 + k_\text{free} \cdot \mathbf{f} + k_{u_\text{prev}}\,\Delta u_{t-1}\]
+</div>
+
+<h3 class="sub-title" id="sec6-4">6.4 Feedforward + MPC + PID Composition</h3>
+<p>Additional integral and derivative corrections improve steady-state accuracy and damp rapid error changes:</p>
+
+<div class="eq-block">
+  <div class="eq-label">Integral and derivative corrections</div>
+  \[\delta_u = \Delta u^*[0] - I_\text{GAIN}\cdot I_t + D_\text{GAIN}\cdot (e_t - e_{t-1})\]
+  \[I_\text{GAIN} = 0.020, \quad D_\text{GAIN} = -0.05\]
+</div>
+
+<div class="eq-block">
+  <div class="eq-label">Total steer output</div>
+  \[\text{raw}_t = \text{steer}_\text{ff} + \delta_u\]
+</div>
+
+<div class="eq-block">
+  <div class="eq-label">EMA + rate limit + saturation</div>
+  \[\text{out}_t = 0.87\,u_{t-1} + 0.13\,\text{raw}_t\]
+  \[u_t = \text{clip}(\text{out}_t,\; u_{t-1} - 0.07,\; u_{t-1} + 0.07,\; -2,\; 2)\]
+</div>
+
+<h3 class="sub-title" id="sec6-5">6.5 Full Execution Flow</h3>
+<div class="flow">
+  <div class="flow-row"><div class="flow-box blue"><div class="fb-title">Step 1 — Feedforward</div>Blend current target with 10-step future mean (70/30). Compute steer_ff = FF_GAIN × r_eff.</div></div>
+  <div class="flow-arrow">↓</div>
+  <div class="flow-row"><div class="flow-box blue"><div class="fb-title">Step 2 — Error + Integral + Derivative</div>e₀ = la − target. Update I (anti-windup ±3). Compute d_error = e₀ − e_prev.</div></div>
+  <div class="flow-arrow">↓</div>
+  <div class="flow-row"><div class="flow-box orange"><div class="fb-title">Step 3 — Free vector</div>Build f ∈ ℝ²⁰ from future roll sequence + constant bias.</div></div>
+  <div class="flow-arrow">↓</div>
+  <div class="flow-row"><div class="flow-box orange"><div class="fb-title">Step 4 — MPC (dot product)</div>Δu* = k_e0·e₀ + k_free·f + k_uprev·Δu_prev (precomputed gains, O(H) cost).</div></div>
+  <div class="flow-arrow">↓</div>
+  <div class="flow-row"><div class="flow-box green"><div class="fb-title">Step 5 — I + D correction</div>δ_u = Δu* − I_GAIN·I + D_GAIN·d_error.</div></div>
+  <div class="flow-arrow">↓</div>
+  <div class="flow-row"><div class="flow-box red"><div class="fb-title">Step 6 — Output</div>raw = steer_ff + δ_u → EMA(0.87) → rate limit(±0.07) → clip to [−2, 2].</div></div>
+</div>
+</section>
+
+
+<!-- ════════════════════ SECTION 7 ════════════════════ -->
+<section id="sec7">
+<h2 class="sec-title">7 · Feedforward + PID Controller (<code>feedforward_pid.py</code>)</h2>
+
+<div class="box good">
+  <strong>Best performer:</strong> Despite its simplicity, this controller achieves the lowest total cost (61.62) — demonstrating that a well-tuned feedforward + PID with preview can be highly competitive with more complex model-based approaches.
+</div>
+
+<h3 class="sub-title" id="sec7-1">7.1 Preview Feedforward</h3>
+<p>The controller blends the current target with a 10-step future average to anticipate upcoming turns:</p>
+
+<div class="eq-block">
+  <div class="eq-label">Preview-blended effective target</div>
+  \[r_\text{eff}[t] = (1 - \beta)\,r[t] + \beta\,\frac{1}{N}\sum_{k=1}^{N} r[t+k], \qquad \beta = 0.949,\; N = 10\]
+</div>
+
+<div class="eq-block">
+  <div class="eq-label">Feedforward steer command</div>
+  \[u_\text{ff}[t] = \text{FF\_GAIN} \cdot r_\text{eff}[t], \qquad \text{FF\_GAIN} = 0.31498\]
+</div>
+
+<p>The high future weight (β ≈ 0.95) means the controller is predominantly looking ahead at the average near-future lataccel, not the instantaneous current target. This is important for smooth operation.</p>
+
+<h3 class="sub-title" id="sec7-2">7.2 PID Residual Control</h3>
+<p>After the feedforward handles steady-state, PID corrects residual tracking errors:</p>
+
+<div class="eq-block">
+  <div class="eq-label">PID error accumulation</div>
+  \[e_t = r[t] - y[t]\]
+  \[I_t = \text{clip}(I_{t-1} + e_t, -5, 5)\]
+  \[D_t = e_t - e_{t-1}\]
+</div>
+
+<div class="eq-block">
+  <div class="eq-label">PID output</div>
+  \[u_\text{PID}[t] = \underbrace{0.970\,e_t}_{P} + \underbrace{0.076\,I_t}_{I} + \underbrace{0.5\,D_t}_{D}\]
+</div>
+
+<div class="eq-block">
+  <div class="eq-label">Combined raw output</div>
+  \[\text{raw}[t] = u_\text{ff}[t] + u_\text{PID}[t]\]
+</div>
+
+<h3 class="sub-title" id="sec7-3">7.3 Output Smoothing &amp; Rate Limiting</h3>
+
+<div class="eq-block">
+  <div class="eq-label">EMA smoothing</div>
+  \[\text{out}[t] = 0.85\,u[t-1] + 0.15\,\text{raw}[t]\]
+</div>
+
+<div class="eq-block">
+  <div class="eq-label">Rate limit + saturation</div>
+  \[u[t] = \text{clip}\!\left(\text{out}[t],\; u[t-1] - 0.2,\; u[t-1] + 0.2,\; -2,\; 2\right)\]
+</div>
+</section>
+
+
+<!-- ════════════════════ SECTION 8 ════════════════════ -->
+<section id="sec8">
+<h2 class="sec-title">8 · Performance Comparison &amp; Analysis</h2>
+
+<div class="perf-grid">
+  <div class="perf-card">
+    <div class="pc-name">Koopman MPC</div>
+    <div class="pc-val">70.47</div>
+    <div class="pc-sub">LatAccel: 0.9813 | Jerk: 21.4</div>
+  </div>
+  <div class="perf-card">
+    <div class="pc-name">AR-MPC Model</div>
+    <div class="pc-val">132.8</div>
+    <div class="pc-sub">LatAccel: 2.358 | Jerk: 14.92</div>
+  </div>
+  <div class="perf-card best">
+    <div class="pc-name">Feedforward PID ✓</div>
+    <div class="pc-val">61.62</div>
+    <div class="pc-sub">LatAccel: 0.8483 | Jerk: 19.21</div>
+  </div>
+</div>
+
+<table>
+  <tr><th>Metric</th><th>Koopman MPC</th><th>AR-MPC</th><th>FF-PID</th></tr>
+  <tr><td>Total Cost</td><td>70.47</td><td>132.8</td><td><strong>61.62</strong></td></tr>
+  <tr><td>LatAccel Cost (×50 weighted)</td><td>0.9813</td><td>2.358</td><td><strong>0.8483</strong></td></tr>
+  <tr><td>Jerk Cost</td><td>21.4</td><td><strong>14.92</strong></td><td>19.21</td></tr>
+  <tr><td>Lataccel Cost × 50 contribution</td><td>49.07</td><td>117.9</td><td><strong>42.41</strong></td></tr>
+  <tr><td>MPC complexity</td><td>High (30 × 8 rollouts)</td><td>Medium (1 dot product)</td><td>Low (direct)</td></tr>
+  <tr><td>Requires training</td><td>Yes (offline, ~30s)</td><td>Yes (system ID)</td><td>No</td></tr>
+  <tr><td>Model type</td><td>Data-driven (Koopman)</td><td>Analytical AR(1)</td><td>Empirical gain</td></tr>
+</table>
+
+<h3 class="sub-title">Analysis</h3>
+
+<p><strong>AR-MPC's weakness:</strong> The AR(1) model gain (AR_B ≈ 0.06) severely underestimates the true steady-state steer-to-lataccel gain (≈0.14 implied by FF_GAIN=0.30). When the MPC tries to use future target changes in the cost, it computes optimal Δu values that are ≈10× too large, immediately hitting the rate limiter every step, making MPC useless. The fix is to restrict MPC to disturbance rejection only — but this still leaves a 2× lataccel cost vs Koopman.</p>
+
+<p><strong>Koopman MPC's advantage over AR-MPC:</strong> The 90-dimensional Koopman model captures higher-order dynamics and interactions that the scalar AR(1) completely misses. However, random-shooting MPC with only 30 candidates is a coarse optimiser, and the jerk cost (21.4) suffers from the MPC not perfectly coordinating multi-step actions.</p>
+
+<p><strong>Why FF-PID wins:</strong> The high future-weight (β=0.95) feedforward effectively acts as a 10-step preview controller. Since the cost function rewards lataccel accuracy 50× more than jerk, and since TinyPhysics has its own lataccel continuity constraint (±0.5/step), the preview feedforward alone handles most of the tracking. The PID then mopts up model mismatch. Simpler models sometimes win when the dominant disturbance is predictable (known future targets).</p>
+</section>
+
+
+<!-- ════════════════════ SECTION 9 ════════════════════ -->
+<section id="sec9">
+<h2 class="sec-title">9 · Training Results Deep-Dive</h2>
+
+<table>
+  <tr><th>Training Stage</th><th>Metric</th><th>Value</th></tr>
+  <tr><td>Data loading</td><td>Train trajectories / Val trajectories</td><td>900 / 100</td></tr>
+  <tr><td>Lifting</td><td>Input dim → Lifted dim</td><td>12 → 90</td></tr>
+  <tr><td>Training pairs</td><td>Total (z_k, u_k, z_{k+1}) pairs</td><td>518,793</td></tr>
+  <tr><td>Stabilisation</td><td>Eigenvalues clipped / total</td><td>9 / 90</td></tr>
+  <tr><td>Stabilisation</td><td>Max |λ| before stabilisation</td><td>0.9997</td></tr>
+  <tr><td>Stabilisation</td><td>Max |λ| after stabilisation</td><td>0.9700</td></tr>
+  <tr><td>One-step fit</td><td>R² on lifted state z</td><td>0.9943</td></tr>
+  <tr><td>H=15 rollout</td><td>Train R² (blended, α=0.8)</td><td>0.8703</td></tr>
+  <tr><td>H=15 rollout</td><td>Val R² (blended, α=0.8)</td><td>0.8815</td></tr>
+</table>
+
+<h3 class="sub-title">Interpretation</h3>
+
+<p><strong>One-step R² = 0.9943:</strong> The Koopman model explains 99.43% of the variance in the next lifted state. This is excellent — indicating that the degree-2 polynomial lifting with delay embedding captures the vast majority of the dynamics in the lifted space.</p>
+
+<p><strong>H=15 rollout R² = 0.87:</strong> Errors accumulate over 15 steps (1.5 seconds at 10Hz), dropping to 87% — still very good for open-loop prediction. The validation R² (0.8815) slightly exceeding training (0.8703) is a healthy sign of the ridge regularisation preventing overfitting and generalising well to unseen segments.</p>
+
+<p><strong>9 eigenvalues clipped:</strong> Only 10% of modes needed stabilisation, meaning the data-driven fit was already largely stable. The tighter radius (0.97 vs 0.99) adds an extra safety margin at the cost of slightly slower mode decay.</p>
+</section>
+
+
+<!-- ════════════════════ SECTION 10 ════════════════════ -->
+<section id="sec10">
+<h2 class="sec-title">10 · Design Trade-offs &amp; Key Insights</h2>
+
+<h3 class="sub-title">Delta-Blended Prediction</h3>
+<p>The dual-head blending — combining absolute and delta predictions — is a key design choice that improves rollout stability. Pure absolute prediction drifts due to bias in \(C[0]\); pure delta accumulates integration error. The 80/20 blend (α=0.8 favouring delta) keeps predictions anchored to the current output while using the absolute head as a soft reset.</p>
+
+<h3 class="sub-title">Random Shooting vs. Closed-Form MPC</h3>
+<p>The Koopman controller uses random-shooting (enumerate 30 constant-hold candidates) rather than solving the QP analytically. With a 90-dimensional state, the AR-MPC's precomputed gain trick only works because it reduces to a scalar error-state. For the full Koopman model, computing \(M = (S_u^\top Q S_u + R)^{-1}\) would require \(S_u \in \mathbb{R}^{H \times n_z}\) — a 90-column matrix — and recomputing every step due to the nonlinear state. Random-shooting is fast enough (30 × 8 = 240 matrix-vector products per step) and avoids the derivation complexity.</p>
+
+<h3 class="sub-title">Why Not Neural MPC?</h3>
+<p>Koopman occupies a sweet spot: richer than AR(1) but interpretable (linear A, B, C matrices). Neural MPC would require backpropagation through the ONNX physics model or training a differentiable surrogate — significantly more complexity without guaranteed improvement given the ±0.5 lataccel noise floor.</p>
+
+<h3 class="sub-title">Spectral Radius vs. Tracking Speed</h3>
+<p>A tighter spectral radius (ρ=0.97 vs 0.99) means the lifted state modes decay faster in open-loop, reducing error propagation in long rollouts. The trade-off is that very slow system modes are truncated, potentially losing some long-range dynamics. For H=8 steps (0.8 seconds), this is acceptable — \(0.97^8 \approx 0.78\) (22% decay per horizon).</p>
+
+<h3 class="sub-title">The Preview Advantage</h3>
+<p>All three controllers exploit the 5-second future plan. The FF-PID with β=0.95 preview essentially steers towards where the car needs to be 1 second from now — a feedforward advantage that is hard to beat when future targets are exactly known.</p>
+
+<div class="box good">
+  <strong>Key Takeaway:</strong> In this challenge, the most impactful improvements come from (1) accurate steady-state feedforward calibration, (2) aggressive future-target preview, and (3) output smoothing/rate-limiting to manage jerk. The Koopman model provides a better plant model than AR(1) but the 50× lataccel weight means tracking accuracy is the primary battleground — and even a simple previewed feedforward handles that well.
+</div>
+</section>
+
+<footer>
+  Koopman MPC · comma.ai Controls Challenge · Technical Report · Generated April 2026
+</footer>
+</div>
+</body>
+</html>
