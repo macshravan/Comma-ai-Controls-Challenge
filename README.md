@@ -177,7 +177,6 @@ Sample rollout plots for each controller are saved as:
 - `koopman_mpc.png` / `koopman_mpc_debug.png`
 - `koopma_jd.png` / `koopma_jd_debug.png`
 
-A detailed technical write-up is available in `technical_report.html` and `report.pdf`.
 
 ---
 
