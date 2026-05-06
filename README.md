@@ -1,6 +1,6 @@
 # Comma AI Controls Challenge
 
-A research project exploring advanced control strategies for lateral acceleration tracking in autonomous driving, built on top of Comma AI's [Controls Challenge](https://github.com/commaai/controls_challenge) simulation framework.
+A project exploring advanced control strategies for lateral acceleration tracking in autonomous driving, built on top of Comma AI's [Controls Challenge](https://github.com/commaai/controls_challenge) simulation framework.
 
 The goal is to design controllers that minimize a cost function balancing **lateral acceleration tracking error** and **steering jerk**, evaluated against a simulated vehicle physics model (`tinyphysics.onnx`).
 
