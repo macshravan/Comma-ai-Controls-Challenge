@@ -25,7 +25,7 @@ The goal is to design controllers that minimize a cost function balancing **late
 │   ├── feedforward_pid.py  # Feedforward + PID with future preview
 │   ├── ar_mpc_model.py     # AR(1)-based incremental MPC
 │   ├── koopman_mpc.py      # Koopman operator + MPC controller
-│   ├── koopman_mpc_jd.py   # Koopman MPC variant (joint dynamics)
+│   ├── koopman_mpc_jd.py   # Earlier Koopman MPC implementation (superseded)
 │   ├── zero.py             # Zero-output controller (sanity check)
 │   └── log_inputs.py       # Input logging controller
 ├── A.npy, B.npy, C.npy    # Saved Koopman system matrices
@@ -163,7 +163,7 @@ This re-fits all system models and saves them to `models/system_models.npz`.
 | `feedforward_pid` | Feedforward + PID with future preview |
 | `ar_mpc_model` | AR(1) incremental MPC |
 | `koopman_mpc` | Koopman operator + sampling MPC |
-| `koopman_mpc_jd` | Koopman MPC (joint dynamics variant) |
+| `koopman_mpc_jd` | Earlier Koopman MPC implementation (superseded by `koopman_mpc`) |
 | `zero` | Zero output (sanity check) |
 | `log_inputs` | Logs controller inputs for analysis |
 
